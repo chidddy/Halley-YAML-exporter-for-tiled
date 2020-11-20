@@ -20,7 +20,7 @@ When you want to add these plugins to your Tiled installation:
 * Open Tiled and go to _Edit > Preferences > Plugins_ and click the "Open"
   button to open the extensions directory.
 
-* [Download](https://github.com/chidddy/Halley-YAML-exporter-for-tiled/archive/master.zip)
+* [Download](https://github.com/chidddy/halley-tiled-export/archive/master.zip)
   the files in this repository and extract them to that location. The scripts
   can be placed either directly in the extensions directory or in a
   subdirectory.
