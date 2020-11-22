@@ -26,6 +26,7 @@ class HalleyTilesetFormat {
             var tile = tiles[i];
             var tmp = {};
             tmp.id = tile.id;
+            tmp.tileset = tileset.name;
             tmp.width = tile.width;
             tmp.height = tile.height;
             if(!this.collection){
@@ -42,8 +43,13 @@ class HalleyTilesetFormat {
                 tmp.frames = [];
                 for(let j = 0; j < tile.frames.length; j++)
                 {
-                    tmp.frames[j].id = tile.frames[j].tileId;
-                    tmp.frames[j].duration = tile.frames[j].duration;
+                    var tmpfrm = {};
+                    //console.info(`${tile.frames[j].tileId}`);
+                    tmpfrm.id = tile.frames[j].tileId;
+                    tmpfrm.frame = j;
+                    tmpfrm.duration = tile.frames[j].duration;
+                    tmpfrm.img = `:img:${this.image}_${tmpfrm.id%columns}_${Math.floor(tmpfrm.id/columns)}`
+                    tmp.frames.push(tmpfrm);
                 }
             }
 
