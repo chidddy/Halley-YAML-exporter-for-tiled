@@ -2,6 +2,7 @@
 class HalleyTilemapFormat {
     constructor(map, filename)
     {
+        this.map = map;
         for(var key in map.properties())
         {
             this[key] = map.properties()[key];
@@ -20,12 +21,15 @@ class HalleyTilemapFormat {
         }
 
 
-        this.layers = this.parse_layers(map);
+        this.tiles = [];
+        this.objects = [];
+        this.parse_layers(map);
     }
 
     write(fileName)
     {
         const file = new TextFile(fileName, TextFile.WriteOnly);
+        delete this.map;
         file.write(this.template());
         file.commit();
     }
@@ -96,58 +100,43 @@ class HalleyTilemapFormat {
         return ret_str;
     }
 
-    parse_layers(obj)
+    parse_layers(obj, main_layer = undefined)
     {
-        var ret = [];
+        var tiebreaker = 0;
         for(var i = 0; i < obj.layerCount; i++)
         {
-            var tmp = {};
             var layer = obj.layerAt(i);
+            if(layer.properties()["type"] == "coll") continue;
+            var lay_num = main_layer == undefined ? i : main_layer;
             if(layer.isTileLayer)
             {
-                tmp = this.parse_tile_layer(layer);
+
+                var coll_layer = undefined;
+
+                for(var j = 0; j < obj.layerCount; j++)
+                {
+                    if(obj.layerAt(j).properties()["type"] == "coll")
+                    {
+                        coll_layer = obj.layerAt(j);
+                    }
+                }
+                this.parse_tile_layer(layer, lay_num, tiebreaker, i == 0 ? coll_layer : undefined);
+                tiebreaker += 0.1;
             }
             if(layer.isObjectLayer)
             {
-                tmp = this.parse_object_layer(layer);
+                this.parse_object_layer(layer, lay_num);
             }
             if(layer.isGroupLayer)
             {
-                tmp = this.parse_group_layer(layer);
+                this.parse_group_layer(layer, lay_num);
 
             }
-
-            for(var key in layer.properties())
-            {
-                tmp[key] = layer.properties()[key];
-            }
-
-            switch(tmp.type)
-            {
-                case "group":
-                case "nav":
-                case "coll":
-                    tmp.visible = false;
-                    break;
-                case "object":
-                case "tile":
-                    tmp.visible = true;
-                    break;
-            }
-
-            ret[i] = tmp;
         }
-
-        return ret;
     }
 
-    parse_tile_layer(layer)
+    parse_tile_layer(layer, layer_num, tiebreaker, coll_data)
     {
-        var ret = {};
-        ret.name = layer.name;
-        ret.width = layer.width;
-        ret.height = layer.height;
-        ret.tiles = [];
         for(var y = 0; y < layer.height; ++y)
         {
             for(var x = 0; x < layer.width; ++x)
@@ -167,23 +156,33 @@ class HalleyTilemapFormat {
                 tmp.flippedHorizontally = cell.flippedHorizontally;
                 tmp.flippedVertically = cell.flippedVertically;
                 tmp.flippedAntiDiagonally  = cell.flippedAntiDiagonally;
-                
-                ret.tiles.push(tmp);
+                tmp.tiebreaker = tiebreaker;
+                tmp.layer = layer_num;
+                tmp.animated = tile.animated;
+                if(coll_data != undefined){
+                    var coll_cell = coll_data.cellAt(x,y);
+                    if(coll_cell.tileId != -1){
+                        var coll_tile = coll_data.tileAt(x,y);
+                        tmp.coll_tileset = coll_tile.tileset.name;
+                        tmp.coll_id = coll_tile.id;
+                    }
+                }
+                if(tmp.coll_id != undefined && tmp.coll_id != null)
+                {
+                    tmp.coll = true;
+                } else 
+                {
+                    tmp.coll = false;
+                }
 
+
+                this.tiles.push(tmp);
             }
         }
-
-
-        return ret;
     }
 
-    parse_object_layer(layer)
+    parse_object_layer(layer, layer_num)
     {
-        var ret = {};
-        ret.name = layer.name;
-        ret.type = "object";
-        ret.object_count = layer.objectCount;
-        ret.objects = [];
         for(var i = 0; i < layer.objects.length; i++)
         {
             var object = layer.objects[i];
@@ -197,6 +196,7 @@ class HalleyTilemapFormat {
             tmp.width = object.width;
             tmp.height = object.height;
             tmp.rotation = object.rotation;
+            tmp.layer = layer_num;
 
             switch(object.type)
             {
@@ -205,29 +205,27 @@ class HalleyTilemapFormat {
                     tmp.tileset = object.tile.tileset.name;
                     tmp.tileFlippedHorizontally = object.tileFlippedHorizontally;
                     tmp.tileFlippedVertically = object.tileFlippedVertically;
+                    tmp.tiebreaker = tmp.y;
                     tmp.visible = true;
                     break;
                 case "area":
+                case "entrance":
                     tmp.visible = false;
                     break;
             }
 
-            ret.objects.push(tmp);
-        }
+            for(var key in object.properties())
+            {
+                tmp[key] = object.properties()[key];
+            }
 
-        return ret;
+            this.objects.push(tmp);
+        }
     }
 
-    parse_group_layer(layer)
+    parse_group_layer(layer, i)
     {
-        var ret = {};
-
-        ret.name = layer.name;
-        ret.type = "group";
-        ret.layerCount = layer.layerCount;
-        ret.layers = this.parse_layers(layer);
-
-        return ret;
+        this.parse_layers(layer, i);
     }
 };
 
